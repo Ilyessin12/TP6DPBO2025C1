@@ -10,11 +10,12 @@ public class App {
         frame.setResizable(false);
         frame.setVisible(true);
 
-        //jpanel objects
+        //jpanel objects for flappy bird
         FlappyBird flappyBird = new FlappyBird();
         frame.add(flappyBird);
         frame.pack();
         flappyBird.requestFocus();
         frame.setVisible(true);
+
     }
 }

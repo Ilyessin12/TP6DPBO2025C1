@@ -38,14 +38,23 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
     //gravity
     int gravity = 1;
 
+    //game states
+    boolean gameOver = false;
+    boolean gameStarted = false;
 
+    //score systems
+    int score = 0;
+    private JLabel scoreLabel;
+    
+    // Game over panel
+    private GameOverPanel gameOverPanel;
 
     //constructor
     public FlappyBird(){
         setPreferredSize(new Dimension(frameWidth, frameHeight));
         setFocusable(true);
         addKeyListener(this);
-        //setBackground(Color.blue);
+        setLayout(null); // Use absolute positioning
 
         //load images
         backgroundImage = new ImageIcon("src/assets/background.png").getImage();
@@ -58,6 +67,19 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
 
         //create pipes
         pipes = new ArrayList<Pipe>();
+        
+        // Setup score label
+        scoreLabel = new JLabel("Score: 0");
+        scoreLabel.setForeground(Color.WHITE);
+        scoreLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        scoreLabel.setBounds(10, 10, 150, 30);
+        add(scoreLabel);
+        
+        // Setup game over panel
+        gameOverPanel = new GameOverPanel(score);
+        gameOverPanel.setBounds(frameWidth/2 - 120, frameHeight/2 - 60, 240, 120);
+        gameOverPanel.setVisible(false);
+        add(gameOverPanel);
 
         //place pipes
         pipesCooldown = new Timer(1500 , new ActionListener() {
@@ -74,7 +96,6 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
         //timers
         gameLoop = new Timer(1000/60, this);
         gameLoop.start();
-
     }
 
     public void draw(Graphics g){
@@ -89,23 +110,57 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
         }
     }
 
+    // safeguard function so that the game is not running when the window is closed
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         draw(g);
     }
 
-    public void move(){
-        //apply gravity for player movement
+    public void move() {
+        if (gameOver) return;
+
+        // Apply gravity for player movement
         player.setVelocityY(player.getVelocityY() + gravity);
         player.setPosY(player.getPosY() + player.getVelocityY());
-        player.setPosY(Math.max(player.getPosY(), 0));
 
-        //move pipes
-        for(int i = 0; i < pipes.size(); i++){
+        // Check if player hits the ground
+        if (player.getPosY() + player.getHeight() >= frameHeight) {
+            player.setPosY(frameHeight - player.getHeight());
+            gameOver();
+        }
+
+        // Move pipes and check for score/collision
+        for (int i = 0; i < pipes.size(); i++) {
             Pipe pipe = pipes.get(i);
             pipe.setPosX(pipe.getPosX() + pipe.getVelocityX());
+
+            // Remove pipes that are off-screen
+            if (pipe.getPosX() + pipe.getWidth() < 0) {
+                pipes.remove(i);
+                i--;
+                continue;
+            }
+
+            // Check if player passed pipe (score point)
+            if (!pipe.isPassed() && pipe.getPosX() + pipe.getWidth() < player.getPosX()) {
+                pipe.setPassed(true);
+                if(pipe.passed == true){
+                    score++;
+                    updateScore();
+                }
+            }
+
+            // Check for collision with pipes
+            if (checkCollision(player, pipe)) {
+                gameOver();
+            }
         }
+    }
+    
+    // Update score display
+    private void updateScore() {
+        scoreLabel.setText("Score: " + score/2);
     }
 
     //pipe methods
@@ -122,6 +177,52 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
         Pipe lowerPipe = new Pipe(pipeStartPosX, (randomPosY + openingSpace + pipeHeight), pipeWidth, pipeHeight, lowerPipeImage);
         lowerPipe.setVelocityX(-3);
         pipes.add(lowerPipe);
+    }
+
+    //collision detection
+    private boolean checkCollision(Player player, Pipe pipe) {
+        Rectangle playerRect = new Rectangle(
+                player.getPosX(), player.getPosY(),
+                player.getWidth(), player.getHeight()
+        );
+
+        Rectangle pipeRect = new Rectangle(
+                pipe.getPosX(), pipe.getPosY(),
+                pipe.getWidth(), pipe.getHeight()
+        );
+
+        return playerRect.intersects(pipeRect);
+    }
+
+    private void gameOver() {
+        gameOver = true;
+        gameLoop.stop();
+        pipesCooldown.stop();
+        
+        // Update and show game over panel
+        gameOverPanel.updateScore(score);
+        gameOverPanel.setVisible(true);
+    }
+
+    private void resetGame() {
+        // Reset game state
+        gameOver = false;
+        score = 0;
+        updateScore();
+
+        // Reset player
+        player.setPosY(playerStartPosY);
+        player.setVelocityY(0);
+
+        // Clear pipes
+        pipes.clear();
+        
+        // Hide game over panel
+        gameOverPanel.setVisible(false);
+
+        // Restart timers
+        gameLoop.start();
+        pipesCooldown.start();
     }
 
     @Override
@@ -141,9 +242,15 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
 
     @Override
     public void keyPressed(KeyEvent e) {
-        if(e.getKeyCode() == KeyEvent.VK_SPACE){
-            //jump
+        // press space to jump
+        if (e.getKeyCode() == KeyEvent.VK_SPACE) {
             player.setVelocityY(-10);
+        }
+        //press R to RE:Do
+        if (e.getKeyCode() == KeyEvent.VK_R) {
+            if (gameOver) {
+                resetGame();
+            }
         }
     }
 
@@ -151,5 +258,55 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
     public void keyReleased(KeyEvent e) {
 
     }
-
+    
+    // Inner class for Game Over Panel
+    private class GameOverPanel extends JPanel {
+        private JLabel gameOverLabel;
+        private JLabel scoreDisplayLabel;
+        private JLabel restartLabel;
+        
+        public GameOverPanel(int score) {
+            setLayout(null);
+            setOpaque(false);
+            
+            // Game over text
+            gameOverLabel = new JLabel("GAME OVER");
+            gameOverLabel.setForeground(Color.WHITE);
+            gameOverLabel.setFont(new Font("Arial", Font.BOLD, 28));
+            gameOverLabel.setBounds(30, 10, 200, 30);
+            add(gameOverLabel);
+            
+            // Score text
+            scoreDisplayLabel = new JLabel("SCORE: " + score);
+            scoreDisplayLabel.setForeground(Color.WHITE);
+            scoreDisplayLabel.setFont(new Font("Arial", Font.BOLD, 22));
+            scoreDisplayLabel.setBounds(60, 50, 150, 25);
+            add(scoreDisplayLabel);
+            
+            // Restart instructions
+            restartLabel = new JLabel("Press 'R' to Restart");
+            restartLabel.setForeground(Color.WHITE);
+            restartLabel.setFont(new Font("Arial", Font.PLAIN, 16));
+            restartLabel.setBounds(50, 80, 150, 20);
+            add(restartLabel);
+        }
+        
+        public void updateScore(int score) {
+            scoreDisplayLabel.setText("SCORE: " + score/2);
+        }
+        
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            
+            // Draw semi-transparent background
+            g.setColor(new Color(80, 220, 80, 100));
+            g.fillRect(0, 0, getWidth(), getHeight());
+            
+            // Draw panel border
+            g.setColor(Color.WHITE);
+            g.drawRect(0, 0, getWidth() - 1, getHeight() - 1);
+            g.drawRect(-2, -2, getWidth() + 3, getHeight() + 3);
+        }
+    }
 }
