@@ -3,19 +3,16 @@ import java.awt.*;
 
 public class App {
     public static void main(String[] args){
-        JFrame frame = new JFrame("Flappy Bird weee");
+        JFrame frame = new JFrame("Flappy Bird");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(800, 600);
         frame.setLocationRelativeTo(null);
         frame.setResizable(false);
-        frame.setVisible(true);
 
-        //jpanel objects for flappy bird
-        FlappyBird flappyBird = new FlappyBird();
-        frame.add(flappyBird);
+        // Start with menu instead of game
+        StartMenu startMenu = new StartMenu();
+        frame.add(startMenu);
         frame.pack();
-        flappyBird.requestFocus();
         frame.setVisible(true);
-
     }
 }
